@@ -45,6 +45,7 @@
 	#endif
 	unsigned long getNtpTime();
 #else // header and defs for RPI/BBB
+#include <sys/sysinfo.h>
 	EthernetServer *m_server = 0;
 	EthernetClient *m_client = 0;
 #endif
@@ -374,6 +375,7 @@ void do_setup() {
 
 	pd.init();           // ProgramData init
 
+	{ struct sysinfo si; sysinfo(&si); os.powerup_lasttime = os.now_tz() - si.uptime; } // actual system boot time in local time
 	if (os.start_network()) {  // initialize network
 		DEBUG_PRINTLN("network established.");
 		os.status.network_fails = 0;
