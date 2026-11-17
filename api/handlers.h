@@ -39,6 +39,8 @@ void server_delete_sensor(const OTF::Request&, OTF::Response&);
 void server_json_sensor_log(const OTF::Request&, OTF::Response&);
 void server_delete_sensor_log(const OTF::Request&, OTF::Response&);
 void server_json_sensor_desc(const OTF::Request&, OTF::Response&);
+void server_change_snooze(const OTF::Request&, OTF::Response&);
+void server_json_snooze(const OTF::Request&, OTF::Response&);
 
 void server_json_stations_main(const OTF::Request&, OTF::Response&);
 void server_json_options_main();

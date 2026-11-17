@@ -32,6 +32,7 @@
 #include "api/server.h"
 #include "services/mqtt.h"
 #include "core/scheduler.h"
+#include "core/snooze.h"
 #include "storage/logging.h"
 #include "services/notifier.h"
 #include "services/firmware_update.h"
@@ -419,6 +420,7 @@ void do_setup() {
 	Sensor::load_all();
 
 	pd.init();           // ProgramData init
+	snooze_load();       // per-station snooze times
 
 	// set time using RTC if it exists
 	if(RTC.exists())	setTime(RTC.get());
@@ -472,6 +474,7 @@ void do_setup() {
 	Sensor::load_all();
 
 	pd.init();           // ProgramData init
+	snooze_load();       // per-station snooze times
 
 	// best-effort lupt now; refined in do_loop() once the clock is NTP-synced
 	ospi_update_powerup_time();
@@ -1084,8 +1087,8 @@ void do_loop()
 
 						// TODO: compare with old code
 						uint32_t dur = prog.durations[sid];
-						// if station has non-zero water time and the station is not disabled
-						if (dur && !(os.attrib_dis[bid]&(1<<s))) {
+						// if station has non-zero water time and the station is not disabled or snoozed
+						if (dur && !(os.attrib_dis[bid]&(1<<s)) && !station_snoozed(sid)) {
 							// water time is scaled by watering percentage
 							uint32_t water_time = water_time_resolve(dur);
 
