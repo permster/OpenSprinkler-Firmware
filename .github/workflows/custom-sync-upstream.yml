@@ -1,0 +1,50 @@
+# Custom: one-click merge of upstream master into `ospi-custom` (Actions > Run workflow).
+# Stops without pushing if the merge has conflicts or the merged code doesn't build.
+# If upstream changed files under .github/workflows, GitHub refuses the push from the built-in
+# token; then either merge locally or add a repository secret SYNC_TOKEN (a fine-grained token
+# for this repo with Contents + Workflows read/write).
+name: Custom - Sync from upstream
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  UPSTREAM: https://github.com/OpenSprinkler/OpenSprinkler-Firmware.git
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ospi-custom
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Merge upstream master into ospi-custom
+        run: |
+          git remote add upstream "$UPSTREAM"
+          git fetch --quiet upstream master
+          behind=$(git rev-list --count HEAD..upstream/master)
+          if [ "$behind" = "0" ]; then echo "Already up to date."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git merge --no-ff -m "Merge upstream $(git rev-parse --short upstream/master) into ospi-custom" upstream/master; then
+            echo "::error::Merge has conflicts - nothing was pushed. Resolve locally:"
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+          test -f core/snooze.cpp
+          sudo apt-get update -qq && sudo apt-get install -y -qq libmosquitto-dev libssl-dev >/dev/null
+          git submodule update --init --recursive --quiet
+          if ! make -j"$(nproc)" VERSION=DEMO >build.log 2>&1; then
+            tail -40 build.log
+            echo "::error::Merged code does not build - nothing was pushed."
+            exit 1
+          fi
+          git push origin ospi-custom
+

@@ -1,0 +1,101 @@
+# Custom: daily check for new upstream commits. Test-merges upstream master into `ospi-custom`
+# (nothing is pushed) and opens/updates one issue, which GitHub emails you about.
+# Requires Issues to be enabled on this fork (Settings > General > Features > Issues).
+# Scheduled runs use the workflow file on the default branch, so `ospi-custom` must be the
+# repository's default branch.
+name: Custom - Watch upstream
+
+on:
+  schedule:
+    - cron: "17 13 * * *"   # daily, 6:17 AM Arizona time
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  UPSTREAM: https://github.com/OpenSprinkler/OpenSprinkler-Firmware.git
+  UPSTREAM_NAME: OpenSprinkler/OpenSprinkler-Firmware
+  ISSUE_TITLE: "Upstream update available"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ospi-custom
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Compare with upstream and test-merge
+        id: cmp
+        run: |
+          git remote add upstream "$UPSTREAM"
+          git fetch --quiet upstream master
+          up_sha=$(git rev-parse --short upstream/master)
+          behind=$(git rev-list --count HEAD..upstream/master)
+          echo "behind=$behind" >> "$GITHUB_OUTPUT"
+          echo "up_sha=$up_sha" >> "$GITHUB_OUTPUT"
+          echo "ospi-custom is $behind commit(s) behind upstream ($up_sha)"
+          [ "$behind" -gt 0 ] || exit 0
+
+          if git -c user.name=ci -c user.email=ci@localhost merge --no-commit --no-ff upstream/master >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq libmosquitto-dev libssl-dev >/dev/null
+            git submodule update --init --recursive --quiet
+            if make -j"$(nproc)" VERSION=DEMO >build.log 2>&1; then
+              result="clean, and the test build passed - safe to sync"
+            else
+              result="clean merge, but the TEST BUILD FAILED - needs a manual look"
+              tail -30 build.log
+            fi
+          else
+            result="CONFLICTS - needs a manual merge"
+          fi
+          conflicts=$(git diff --name-only --diff-filter=U)
+          git merge --abort 2>/dev/null || git reset --hard -q
+
+          {
+            echo "<!-- upstream:$up_sha -->"
+            echo "Upstream \`$UPSTREAM_NAME\` master (\`$up_sha\`) has **$behind commit(s)** not in \`ospi-custom\`."
+            echo
+            echo "**Test merge into \`ospi-custom\`: $result**"
+            if [ -n "$conflicts" ]; then
+              echo
+              echo "Conflicting files:"
+              echo "$conflicts" | sed 's/^/- `/; s/$/`/'
+            fi
+            echo
+            echo "### New upstream commits"
+            git log --oneline --no-merges HEAD..upstream/master | head -40 | sed 's/^/- /'
+            echo
+            echo "### To update"
+            echo "- If the merge is clean and builds: Actions > **Custom - Sync from upstream** > Run workflow."
+            echo "- Then on the Pi: back up the binary and run \`sudo ./updater.sh\` in ~/OpenSprinkler-Firmware (or use Update in the app) - it pulls \`ospi-custom\` from this fork."
+            echo "- Check upstream's release notes for anything that changes the Pi setup (e.g. new build dependencies)."
+            echo "- This issue closes itself on the next check after \`ospi-custom\` is up to date."
+          } > body.md
+          cat body.md
+
+      - name: Open, update or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEHIND: ${{ steps.cmp.outputs.behind }}
+          UP_SHA: ${{ steps.cmp.outputs.up_sha }}
+        run: |
+          num=$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" --json number,title \
+                  -q "map(select(.title == \"$ISSUE_TITLE\")) | .[0].number // empty")
+          if [ "$BEHIND" = "0" ]; then
+            if [ -n "$num" ]; then gh issue close "$num" --comment "\`ospi-custom\` is up to date with upstream (\`$UP_SHA\`)."; fi
+            exit 0
+          fi
+          if [ -z "$num" ]; then
+            gh issue create --title "$ISSUE_TITLE" --body-file body.md
+          else
+            old=$(gh issue view "$num" --json body -q .body | grep -o 'upstream:[0-9a-f]*' | head -1)
+            gh issue edit "$num" --body-file body.md
+            if [ "$old" != "upstream:$UP_SHA" ]; then
+              gh issue comment "$num" --body "More upstream changes (now \`$UP_SHA\`); the description above is updated."
+            fi
+          fi
