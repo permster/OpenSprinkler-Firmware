@@ -965,11 +965,18 @@ void do_loop()
 		if (os.button_timeout) os.button_timeout--;
 
 #if !defined(ARDUINO)
-		// OSPi: the clock may not be NTP-synced at boot; recompute lupt once it is
+		// OSPi: the clock may not be NTP-synced at boot; recompute lupt once it is.
+		// lupt is stored in controller-local time, so also recompute if the timezone
+		// option changes after boot (e.g. a config import or a weather-service tz update).
 		static bool lupt_final = false;
+		static unsigned char lupt_tz = os.iopts[IOPT_TIMEZONE];
 		if (!lupt_final && ospi_clock_synced()) {
 			ospi_update_powerup_time();
 			lupt_final = true;
+		}
+		if (lupt_tz != os.iopts[IOPT_TIMEZONE]) {
+			lupt_tz = os.iopts[IOPT_TIMEZONE];
+			ospi_update_powerup_time();
 		}
 #endif
 
