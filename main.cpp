@@ -57,6 +57,8 @@
 #else // header and defs for RPI/Linux
 	#include <dirent.h>
 	#include <unistd.h>
+	#include <sys/sysinfo.h>
+	#include <sys/timex.h>
 	bool useEth = false;
 #endif
 
@@ -449,6 +451,19 @@ void do_setup() {
 #else
 void initialize_otf();
 
+/** OSPi: true once the kernel reports the system clock as NTP-synchronized */
+static bool ospi_clock_synced() {
+	struct timex tx = {};  // modes = 0: read only
+	int state = adjtimex(&tx);
+	return state != -1 && state != TIME_ERROR && !(tx.status & STA_UNSYNC);
+}
+
+/** OSPi: set lupt from the actual system boot time (now minus uptime) */
+static void ospi_update_powerup_time() {
+	struct sysinfo si;
+	if (sysinfo(&si) == 0) os.powerup_lasttime = os.now_tz() - si.uptime;
+}
+
 void do_setup() {
 	initialiseEpoch();   // initialize the Linux microsecond clock reference
 	os.begin();          // OpenSprinkler init
@@ -457,6 +472,9 @@ void do_setup() {
 	Sensor::load_all();
 
 	pd.init();           // ProgramData init
+
+	// best-effort lupt now; refined in do_loop() once the clock is NTP-synced
+	ospi_update_powerup_time();
 
 	if (os.start_network()) {  // initialize network
 		DEBUG_PRINTLN("network established.");
@@ -945,6 +963,15 @@ void do_loop()
 
 		last_time = curr_time;
 		if (os.button_timeout) os.button_timeout--;
+
+#if !defined(ARDUINO)
+		// OSPi: the clock may not be NTP-synced at boot; recompute lupt once it is
+		static bool lupt_final = false;
+		if (!lupt_final && ospi_clock_synced()) {
+			ospi_update_powerup_time();
+			lupt_final = true;
+		}
+#endif
 
 #if defined(USE_DISPLAY)
 		if (!ui_state && !firmware_update_display_active())
