@@ -209,7 +209,16 @@ enum {
 /** Default string option values */
 #define DEFAULT_PASSWORD          "a6d82bced638de3def1e9bbb4983225c"  // md5 of 'opendoor'
 #define DEFAULT_LOCATION          "42.36,-71.06"  // Boston,MA
-#define DEFAULT_JAVASCRIPT_URL    "https://ui.opensprinkler.com/js"
+// Custom build: the web UI comes from the custom app (with snooze), never the official one.
+// DEFAULT_JAVASCRIPT_URL is what a fresh install or "Reset UI Source" uses. The start page
+// tries the configured UI Source first and falls back to FALLBACK_JAVASCRIPT_URL if it
+// fails to load (e.g. the Pi's local web server is down).
+#ifndef DEFAULT_JAVASCRIPT_URL
+#define DEFAULT_JAVASCRIPT_URL    "https://permster.github.io/OpenSprinkler-App/js"
+#endif
+#ifndef FALLBACK_JAVASCRIPT_URL
+#define FALLBACK_JAVASCRIPT_URL   "https://permster.github.io/OpenSprinkler-App/js"
+#endif
 #define DEFAULT_WEATHER_URL       "weather.opensprinkler.com"
 #define DEFAULT_IFTTT_URL         "maker.ifttt.com"
 #define DEFAULT_OTC_SERVER_DEV     "ws.cloud.openthings.io"

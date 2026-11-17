@@ -782,7 +782,11 @@ void server_home(OTF_PARAMS_DEF)
 	bfill.emit_p(PSTR("var ver=$D,ipas=$D;</script>"),
 							 OS_FW_VERSION, os.iopts[IOPT_IGNORE_PASSWORD]);
 
-	bfill.emit_p(PSTR("<script src=\"$O/home.js\"></script></body></html>"), SOPT_JAVASCRIPTURL);
+	// Load the UI from the configured source; if that fails (e.g. a local web server is
+	// down), load it from FALLBACK_JAVASCRIPT_URL instead.
+	bfill.emit_p(PSTR("<script src=\"$O/home.js\" onerror=\"var s=document.createElement('script');"
+		"s.src='$F/home.js';document.body.appendChild(s)\"></script></body></html>"),
+		SOPT_JAVASCRIPTURL, PSTR(FALLBACK_JAVASCRIPT_URL));
 
 	handle_return(HTML_OK);
 }
