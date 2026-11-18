@@ -8,6 +8,11 @@ ifeq ($(VERSION),OSPI)
 LIBS+=i2c lgpio
 endif
 LDFLAGS=$(addprefix -l,$(LIBS))
+# Custom: the git commit this build came from, reported by /jz as "fwc" so Home Assistant can
+# tell whether the controller runs the fork's latest commit. -c safe.directory because
+# build.sh runs as root in a checkout owned by pi.
+FW_COMMIT:=$(shell git -c safe.directory='*' rev-parse --short=7 HEAD 2>/dev/null)
+CXXFLAGS+=-DFW_COMMIT='"$(FW_COMMIT)"'
 BINARY=OpenSprinkler
 SERVICE_SOURCES=$(filter-out services/EMailSender.cpp services/espconnect.cpp,$(wildcard services/*.cpp)) $(wildcard services/*.c)
 SOURCES=main.cpp OpenSprinkler.cpp $(wildcard api/*.cpp) $(wildcard boards/*.cpp) $(wildcard core/*.cpp) $(wildcard drivers/*.cpp) $(wildcard platform/*.cpp) $(wildcard sensors/*.cpp) $(SERVICE_SOURCES) $(wildcard storage/*.cpp) $(wildcard util/*.cpp) $(wildcard external/TinyWebsockets/tiny_websockets_lib/src/*.cpp) $(wildcard external/OpenThings-Framework-Firmware-Library/*.cpp)

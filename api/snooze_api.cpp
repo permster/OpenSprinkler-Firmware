@@ -5,6 +5,10 @@
 
 #include <cstdlib>
 
+#ifndef FW_COMMIT
+#define FW_COMMIT ""
+#endif
+
 /**
  * Snooze a station (skip it in scheduled programs for a while)
  * Command: /sz?pw=xxx&sid=x&t=x
@@ -39,6 +43,7 @@ void server_change_snooze(OTF_PARAMS_DEF) {
  *          "lskip":[UTC epoch of the last skipped scheduled run],"lspid":[its program id
  *          (program index + 1)],"lsdur":[its duration in seconds]}  (0 = none / not snoozed)
  * The last-skip arrays are kept in RAM and reset to 0 on restart.
+ * "fwc" is the git commit the firmware was built from ("" if unknown).
  */
 void server_json_snooze(OTF_PARAMS_DEF) {
 	if (!process_password(OTF_PARAMS)) return;
@@ -70,6 +75,6 @@ void server_json_snooze(OTF_PARAMS_DEF) {
 		bfill.emit_p(PSTR("$L"), station_last_skip_duration(sid));
 		if (sid != os.nstations - 1) bfill.emit_p(PSTR(","));
 	}
-	bfill.emit_p(PSTR("]}"));
+	bfill.emit_p(PSTR("],\"fwc\":\"" FW_COMMIT "\"}"));
 	handle_return(HTML_OK);
 }
