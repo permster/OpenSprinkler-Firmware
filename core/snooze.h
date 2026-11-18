@@ -16,3 +16,10 @@ bool station_snoozed(uint8_t sid);                // true while sid's snooze is 
 uint32_t station_snooze_remaining(uint8_t sid);   // seconds left, 0 if not snoozed
 uint32_t station_snooze_until(uint8_t sid);       // UTC epoch when it ends, 0 if not snoozed
 bool snooze_set(uint8_t sid, uint32_t minutes);   // minutes = 0 clears; false if not saved
+
+// Last scheduled run skipped because of a snooze, per station (kept in RAM only; reported by
+// /jz so Home Assistant can keep a history). pid is the program's queue id (program index + 1).
+void snooze_record_skip(uint8_t sid, uint8_t pid, uint32_t duration);
+uint32_t station_last_skip_time(uint8_t sid);     // UTC epoch, 0 = none since boot
+uint8_t station_last_skip_pid(uint8_t sid);
+uint32_t station_last_skip_duration(uint8_t sid); // seconds the skipped run would have watered

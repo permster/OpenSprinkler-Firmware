@@ -709,7 +709,10 @@ static __attribute__((noinline)) RunAdmission admit_scheduled_program(
 	// Custom: snoozed stations are skipped by scheduled programs only (manual runs and
 	// run-once still use prepare_program_run() without this, so they can override a snooze).
 	for (uint16_t sid = 0; sid < os.nstations; sid++) {
-		if (durations[sid] && station_snoozed(sid)) durations[sid] = 0;
+		if (durations[sid] && station_snoozed(sid)) {
+			snooze_record_skip(static_cast<uint8_t>(sid), queue_pid, durations[sid]);
+			durations[sid] = 0;
+		}
 	}
 	return scheduler_enqueue_run(durations, order, queue_pid, false);
 }

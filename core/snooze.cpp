@@ -19,6 +19,9 @@ extern ProgramData pd;
 namespace {
 
 uint32_t snooze_until[MAX_NUM_STATIONS];  // UTC epoch seconds, 0 = not snoozed
+uint32_t skip_time[MAX_NUM_STATIONS];     // last skipped scheduled run (UTC), 0 = none
+uint32_t skip_dur[MAX_NUM_STATIONS];
+uint8_t skip_pid[MAX_NUM_STATIONS];
 
 // now_tz() is controller-local time; stored times are UTC so a timezone change
 // doesn't move the end of a snooze.
@@ -81,3 +84,14 @@ bool snooze_set(uint8_t sid, uint32_t minutes) {
 	if (minutes) stop_station_runs(sid);
 	return saved;
 }
+
+void snooze_record_skip(uint8_t sid, uint8_t pid, uint32_t duration) {
+	if (sid >= MAX_NUM_STATIONS) return;
+	skip_time[sid] = utc_now();
+	skip_pid[sid] = pid;
+	skip_dur[sid] = duration;
+}
+
+uint32_t station_last_skip_time(uint8_t sid) { return sid < MAX_NUM_STATIONS ? skip_time[sid] : 0; }
+uint8_t station_last_skip_pid(uint8_t sid) { return sid < MAX_NUM_STATIONS ? skip_pid[sid] : 0; }
+uint32_t station_last_skip_duration(uint8_t sid) { return sid < MAX_NUM_STATIONS ? skip_dur[sid] : 0; }
